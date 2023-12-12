@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>URL Manager</title>
+  <link href="./bootstrap-5.3.2-dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="./mdb/css/mdb.min.css" rel="stylesheet">
+  <link href="./fontawesome-free-6.5.1-web/css/all.css " rel="stylesheet">
+</head>
+
+<body>
+    <div class="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 bg-white border-bottom box-shadow fixed-top">
+        <img src="./logo.png"/><h5 class="my-0 mx-3 mr-md-auto font-weight-normal">URL Manager</h5>
+    </div>
+
+    <div style="margin-top: 100px;"></div>
+    <div class="row mx-1">
+        <div class="col-md-8">
+            <div class="card border border-info shadow-0 mb-3" style="min-height: 370px;">
+                <div class="card-header text-primary">Summary</div>
+                <div class="card-body mt-3">
+                    <div class="row">
+                        <div class="col border-end">
+                            <div class="mx-2 mb-3"><h6 class="text-warning">Animes_Video</h6></div>
+                            <div class="mx-2 text-end"><p>New item  : 0</p></div>
+                            <div class="mx-2 text-end"><p>Completed : 0</p></div>
+                            <div class="mx-2 text-end"><p>All       : 0</p></div>
+                        </div> 
+                        <div class="col border-end">
+                            <div class="mx-2 mb-3"><h6 class="text-success">Series_Video</h6></div>
+                            <div class="mx-2 text-end"><p>New item  : 0</p></div>
+                            <div class="mx-2 text-end"><p>Completed : 0</p></div>
+                            <div class="mx-2 text-end"><p>All       : 0</p></div>
+                        </div>
+                        <div class="col">
+                            <div class="mx-2 mb-3"><h6 class="text-primary">Movies_Video</h6></div>
+                            <div class="mx-2 text-end"><p>New item : 0</p></div>
+                            <div class="mx-2 text-end"><p>Completed : 0</p></div>
+                            <div class="mx-2 text-end"><p>All       : 0</p></div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary mt-3" id="start_btn" data-mdb-ripple-init data-mdb-ripple-color="dark" style="position: absolute; right: 10px; bottom: 10px;">
+                        Start Process
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border border-success shadow-0 mb-3" style="min-height: 370px;">
+                <div class="card-header text-success">Process Status</div>
+                <div class="card-body mt-3">
+                    <div class="mx-2"><p id="count_animes">Complete of Anime : 0</p></div>
+                    <div class="mx-2"><p id="count_series">Complete of Series : 0</p></div>
+                    <div class="mx-2"><p id="count_movie">Complete of Movie : 0</p></div>
+                    <button type="button" class="btn btn-primary btn-floating left" data-mdb-ripple-init data-mdb-ripple-color="dark" style="position: absolute; right: 10px; bottom: 10px;">
+                        <i class="fas fa-stop"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="mx-3">
+        <div class="card border border-success shadow-0 mb-3" style="min-height: 200px;">
+            <div class="card-body">
+                <div class="mx-3 text-primary"><p id="process-header">Converting M3U8 to MP4</p></div>
+                <div class="mx-3">
+                    <div class="row">
+                        <div class="col-md-1">
+                            <p>Target: </p>
+                        </div>
+                        <div class="col-md-11">
+                            <p id="from_url"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="progress mx-2 fixed-bottom mb-2" style="height: 20px;">
+        <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="progress-bar">0%</div>
+    </div>
+
+  <script>
+    const electron = require('electron');
+    const { ipcRenderer } = electron;
+    //send data from this page into electron
+
+    document.getElementById("start_btn").addEventListener('click', () => {
+        ipcRenderer.send('start');
+    });
+
+    // retrieve data from electeon into this page
+    ipcRenderer.on('success', (event, str) => {
+        let integer = parseInt(str);
+        var progress_bar = document.getElementById('progress-bar');
+        progress_bar.innerHTML = integer + "%";
+        progress_bar.style.width = integer + "%";
+    });
+
+
+    ipcRenderer.on('show_message', (event, str) => {
+        document.getElementById('from_url').innerHTML=str
+    });
+
+    ipcRenderer.on('show_header', (event, str) => {
+        document.getElementById('process-header').innerHTML=str
+    });
+
+    ipcRenderer.on('preparing', () => {
+        document.getElementById('status').innerHTML="Preparing..."
+    });
+
+    ipcRenderer.on('setCountAnime', (event, str) => {
+        document.getElementById('count_animes').innerHTML="Complete of Anime : " + str
+    });
+    ipcRenderer.on('setCountSeries', (event, str) => {
+        document.getElementById('count_series').innerHTML="Complete of Series : " + str
+    });
+    ipcRenderer.on('setCountMovies', (event, str) => {
+        document.getElementById('count_movie').innerHTML="Complete of Movies : " + str
+    });
+    ipcRenderer.on('complete', (event, str) => {
+        document.getElementById('status').innerHTML="";
+        document.getElementById('process-header').innerHTML="completed"
+    });
+
+    // You can also require other files to run in this process
+    require('./renderer.js')
+  </script>
+  <script src="./bootstrap-5.3.2-dist/js/bootstrap.min.js"></script>
+  <script src="./mdb/js/mdb.es.min.js"></script>
+</body>
+
+</html>
