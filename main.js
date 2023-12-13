@@ -231,9 +231,21 @@ app.on('activate', function () {
   }
 })
 
+let anime_start_point = 0;
+let movie_start_point = 0;
+let serie_start_point = 0;
+let isStop = false;
+
 ipcMain.on('start', async () => {
     //start_convert();
+    isStop = false;
     await convert();
+});
+
+
+
+ipcMain.on('stop', async () => {
+  isStop = true;
 });
 
 //m3u8->mp4 convert
@@ -268,7 +280,6 @@ async function start_convert(url, bucket_name,episode_id, server){
         let replaced1=url.replace("http://streaming-sao-b0-cloud-b1-cdn.usercdn.club","http://bot2.usercdn.club/")
         let replaced2=replaced1.replace("http://streaming-sao-b0-cloud-b2-cdn.usercdn.club","http://bot2.usercdn.club/")
         let replaced3=replaced2.replace("http://streaming-sao-b0-cloud-b3-cdn.usercdn.club","http://bot2.usercdn.club/")
-        console.log(replaced3);
         setInputFile(replaced3);
         setOutputFile(filename);
         mainWindow.webContents.send('show_header',"Convert to MP4");
@@ -340,8 +351,6 @@ function test(url, bucket_name, episode_id, server){
     })
     .then(async (result)=>{
 
-        console.log(result);
-
         const hash = crypto.createHash('md5').update(url).digest("hex");
         const filename = `MP4/`+`${hash}.mp4`;
         fs.writeFile(filename, 'This is Test File', (err) => {
@@ -375,7 +384,9 @@ function queryDb(sql) {
         });
       });
 }
-    
+
+connectDb();
+
 function connectDb() {
       return new Promise((resolve, reject) => {
         con.connect(err => {
@@ -392,40 +403,80 @@ let anime_videos = [];
 let serie_videos = [];
 let movie_videos = [];
 
-
-
-
+setInterval(() => {
+  addVideos();
+}, 600000);
 
 async function getVideos() {
-    await getAnimes();
-    await getSeries();
-    await getMovies();
-    
+    await getAnimes("start");
+    await getSeries("start");
+    await getMovies("start");
+    console.log("Completed");
+    mainWindow.webContents.send('completed loaded');
+}
+
+async function addVideos(){
+  await getAnimes("patrol");
+  await getSeries("patrol");
+  await getMovies("patrol");
+  console.log("Completed");
 }
 
 async function convert(){
   await process_animes();
   await process_series();
   await process_movies();
-  console.log("All Completed");
+  console.log("Completed");
 }
 
 async function process_animes(){
-  for(let i = 0; i < anime_videos.length; i++) {
-    await start_test(anime_videos[i].link, "anime", anime_videos[i].anime_episode_id, anime_videos[i].server);
-    await mainWindow.webContents.send('setCountAnime', (i + 1) + "/" + anime_videos.length);
+  for(let i = anime_start_point; i < anime_videos.length; i++) {
+    if(!isStop){
+      await start_test(anime_videos[i].link, "anime", anime_videos[i].anime_episode_id, anime_videos[i].server);
+      await queryDb('UPDATE anime_episodes SET sent = 2 WHERE id ='+ anime_videos[i].anime_episode_id);
+      setTimeout(function () {
+        getCount();
+      }, 100);
+      await mainWindow.webContents.send('setCountAnime', (i + 1) + "/" + anime_videos.length);
+      anime_start_point = i + 1;
+      console.log(anime_start_point);
+    }
+    else{
+      break;
+    }
   }
 }
 async function process_series(){
-  for(let i = 0; i < serie_videos.length; i++) {
+  for(let i = serie_start_point; i < serie_videos.length; i++) {
+    if(!isStop){
     await start_test(serie_videos[i].link, "serie", serie_videos[i].episode_id, serie_videos[i].server);
+    await queryDb('UPDATE episodes SET sent = 2 WHERE id ='+ serie_videos[i].episode_id);
+    setTimeout(function () {
+      getCount();
+    }, 100);
     await mainWindow.webContents.send('setCountSeries', (i + 1) + "/" + serie_videos.length);
+    serie_start_point = i + 1;
+    }
+    else{
+      break;
+    }
   }
 }
+
 async function process_movies(){
-  for(let i = 0; i < movie_videos.length; i++) {
-    await start_test(movie_videos[i].link, "filme", movie_videos[i].movie_id, movie_videos[i].server);
-    await mainWindow.webContents.send('setCountMovies', (i + 1) + "/" + movie_videos.length);
+  for(let i = movie_start_point; i < movie_videos.length; i++) {
+    if(!isStop){
+      await start_test(movie_videos[i].link, "filme", movie_videos[i].movie_id, movie_videos[i].server);
+      await queryDb('UPDATE movies SET sent = 2 WHERE id ='+ movie_videos[i].movie_id);
+      setTimeout(function () {
+        getCount();
+      }, 100);
+      await mainWindow.webContents.send('setCountMovies', (i + 1) + "/" + movie_videos.length);
+      movie_start_point = i + 1;
+    }
+    else{
+      break;
+    }
   }
 }
 
@@ -461,11 +512,18 @@ async function upload(filename, bucket_name, episode_id, server){
 }
 //preparing all data
 
-async function getAnimes(){
+async function getAnimes(flag){
   try {
-    const anime_episodeID = await queryDb('SELECT id FROM anime_episodes where sent = 0 or sent = 1');
-    for(let i = 0; i < anime_episodeID.length; i++) {
+    let anime_episodeID;
+    if(flag === "start"){
+      anime_episodeID = await queryDb('SELECT id FROM anime_episodes where sent = 0 or sent = 1');
+    }
+    if(flag === "patrol"){
+      anime_episodeID = await queryDb('SELECT id FROM anime_episodes where sent = 0');
+    }
+    for(let i = 0; i < 5; i++) {
       const anime_temp_videos = await queryDb('SELECT id, anime_episode_id, server, link FROM anime_videos WHERE anime_episode_id ='+ anime_episodeID[i].id);
+      await queryDb('UPDATE anime_episodes SET sent = 1 WHERE id = '+ anime_episodeID[i].id + ' and sent = 0');
       let temp_server = 99999;
       let temp_id = 0;
           for(let j = 0; j<anime_temp_videos.length; j++){
@@ -476,7 +534,6 @@ async function getAnimes(){
           }
           anime_videos.push(anime_temp_videos[temp_id]);
           mainWindow.webContents.send('show_message',"Preparing animes: "+ (i+1) + "/" + anime_episodeID.length);
-          
     }
   } catch (err) {
     console.error('Error: ', err);
@@ -486,11 +543,19 @@ async function getAnimes(){
   }
 }
 
-async function getSeries(){
+async function getSeries(flag){
   try {
-    const serie_episodeID = await queryDb('SELECT id FROM episodes');
+    let serie_episodeID;
+    if(flag === "start"){
+      serie_episodeID = await queryDb('SELECT id FROM episodes where sent = 0 or sent = 1');
+    }
+    if(flag === "patrol"){ 
+      serie_episodeID = await queryDb('SELECT id FROM episodes where sent = 0');
+    }
+    serie_episodeID = await queryDb('SELECT id FROM episodes where sent = 0 or sent = 1');
     for(let i = 0; i < 5; i++) {
       const serie_temp_videos = await queryDb('SELECT id, episode_id, server, link FROM serie_videos WHERE episode_id ='+ serie_episodeID[i].id);
+      await queryDb('UPDATE episodes SET sent = 1 WHERE id = '+ serie_episodeID[i].id + ' and sent = 0');
       let temp_server = 99999;
       let temp_id = 0;
           for(let j = 0; j<serie_temp_videos.length; j++){
@@ -505,11 +570,19 @@ async function getSeries(){
     console.error('Error: ', err);
   }
 }
-async function getMovies(){
+async function getMovies(flag){
   try {
-    const movie_ID = await queryDb('SELECT id FROM movies');
-    for(let i = 0; i < 5; i++) {
+    let movie_ID;
+    if(flag === "start"){
+      movie_ID = await queryDb('SELECT id FROM movies where sent = 0 or sent = 1');
+    }
+    if(flag === "patrol"){
+      movie_ID = await queryDb('SELECT id FROM movies where sent = 0');
+    }
+    movie_ID = await queryDb('SELECT id FROM movies where sent = 0 or sent = 1');
+    for(let i = 0; i < 100; i++) {
       const movie_temp_videos = await queryDb('SELECT id, movie_id, server, link FROM movie_videos WHERE movie_id ='+ movie_ID[i].id);
+      await queryDb('UPDATE movies SET sent = 1 WHERE id = '+ movie_ID[i].id + ' and sent = 0');
       let temp_server = 99999;
       let temp_id = 0;
           for(let j = 0; j<movie_temp_videos.length; j++){

@@ -53,7 +53,7 @@
                     <div class="mx-2"><p id="count_animes">Complete of Anime : 0</p></div>
                     <div class="mx-2"><p id="count_series">Complete of Series : 0</p></div>
                     <div class="mx-2"><p id="count_movie">Complete of Movie : 0</p></div>
-                    <button type="button" class="btn btn-primary btn-floating left" data-mdb-ripple-init data-mdb-ripple-color="dark" style="position: absolute; right: 10px; bottom: 10px;">
+                    <button type="button" class="btn btn-primary btn-floating left" id="stop_btn" data-mdb-ripple-init data-mdb-ripple-color="dark" style="position: absolute; right: 10px; bottom: 10px;">
                         <i class="fas fa-stop"></i>
                     </button>
                 </div>
@@ -63,7 +63,7 @@
     <div class="mx-3">
         <div class="card border border-success shadow-0 mb-3" style="min-height: 200px;">
             <div class="card-body">
-                <div class="mx-3 text-primary"><p id="process-header">Converting M3U8 to MP4</p></div>
+                <div class="mx-3 text-primary"><p id="process-header">Preparing...</p></div>
                 <div class="mx-3">
                     <div class="row">
                         <div class="col-md-1">
@@ -87,8 +87,21 @@
     const { ipcRenderer } = electron;
     //send data from this page into electron
 
+    document.getElementById("start_btn").style.display = "none";
+    document.getElementById("stop_btn").style.display = "none";
+
+
     document.getElementById("start_btn").addEventListener('click', () => {
         ipcRenderer.send('start');
+        document.getElementById("start_btn").style.display = "none";
+        document.getElementById("stop_btn").style.display = "block";
+    });
+
+    document.getElementById("stop_btn").addEventListener('click', () => {
+        ipcRenderer.send('stop');
+        document.getElementById("start_btn").style.display = "block";
+        document.getElementById("start_btn").innerHTML = "Resume Process";
+        document.getElementById("stop_btn").style.display = "none";
     });
 
     // retrieve data from electeon into this page
@@ -98,16 +111,19 @@
         progress_bar.innerHTML = integer + "%";
         progress_bar.style.width = integer + "%";
     });
+
     ipcRenderer.on('animecount', (event, arr) => {
         document.getElementById('anime1').innerHTML="New item : "+arr.new;
         document.getElementById('anime2').innerHTML="Completed : "+arr.completed;
         document.getElementById('anime3').innerHTML="All Episodes : "+arr.all;
     });
+
     ipcRenderer.on('seriecount', (event, arr) => {
         document.getElementById('serie1').innerHTML="New item : "+arr.new;
         document.getElementById('serie2').innerHTML="Completed : "+arr.completed;
         document.getElementById('serie3').innerHTML="All Episodes : "+arr.all;
     });
+
     ipcRenderer.on('moviecount', (event, arr) => {
         document.getElementById('movie1').innerHTML="New item : "+arr.new;
         document.getElementById('movie2').innerHTML="Completed : "+arr.completed;
@@ -133,7 +149,10 @@
     ipcRenderer.on('setCountMovies', (event, str) => {
         document.getElementById('count_movie').innerHTML="Complete of Movies : " + str;
     });
-
+    ipcRenderer.on('completed loaded', ()=>{
+        document.getElementById("start_btn").style.display = "block";
+        document.getElementById('process-header').innerHTML="Completed loaded"
+    });
     // You can also require other files to run in this process
     require('./renderer.js')
   </script>
