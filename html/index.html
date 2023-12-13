@@ -23,21 +23,21 @@
                     <div class="row">
                         <div class="col border-end">
                             <div class="mx-2 mb-3"><h6 class="text-warning">Animes_Video</h6></div>
-                            <div class="mx-2 text-end"><p>New item  : 0</p></div>
-                            <div class="mx-2 text-end"><p>Completed : 0</p></div>
-                            <div class="mx-2 text-end"><p>All       : 0</p></div>
+                            <div class="mx-2 text-end"><p id="anime1">New item  : 0</p></div>
+                            <div class="mx-2 text-end"><p id="anime2">Completed : 0</p></div>
+                            <div class="mx-2 text-end"><p id="anime3">All Episodes:0</p></div>
                         </div> 
                         <div class="col border-end">
                             <div class="mx-2 mb-3"><h6 class="text-success">Series_Video</h6></div>
-                            <div class="mx-2 text-end"><p>New item  : 0</p></div>
-                            <div class="mx-2 text-end"><p>Completed : 0</p></div>
-                            <div class="mx-2 text-end"><p>All       : 0</p></div>
+                            <div class="mx-2 text-end"><p id="serie1">New item  : 0</p></div>
+                            <div class="mx-2 text-end"><p id="serie2">Completed : 0</p></div>
+                            <div class="mx-2 text-end"><p id="serie3">All Episodes: 0</p></div>
                         </div>
                         <div class="col">
                             <div class="mx-2 mb-3"><h6 class="text-primary">Movies_Video</h6></div>
-                            <div class="mx-2 text-end"><p>New item : 0</p></div>
-                            <div class="mx-2 text-end"><p>Completed : 0</p></div>
-                            <div class="mx-2 text-end"><p>All       : 0</p></div>
+                            <div class="mx-2 text-end"><p id="movie1">New item : 0</p></div>
+                            <div class="mx-2 text-end"><p id="movie2">Completed : 0</p></div>
+                            <div class="mx-2 text-end"><p id="movie3">All Episodes: 0</p></div>
                         </div>
                     </div>
                     <button type="button" class="btn btn-primary mt-3" id="start_btn" data-mdb-ripple-init data-mdb-ripple-color="dark" style="position: absolute; right: 10px; bottom: 10px;">
@@ -83,6 +83,7 @@
 
   <script>
     const electron = require('electron');
+
     const { ipcRenderer } = electron;
     //send data from this page into electron
 
@@ -97,7 +98,21 @@
         progress_bar.innerHTML = integer + "%";
         progress_bar.style.width = integer + "%";
     });
-
+    ipcRenderer.on('animecount', (event, arr) => {
+        document.getElementById('anime1').innerHTML="New item : "+arr.new;
+        document.getElementById('anime2').innerHTML="Completed : "+arr.completed;
+        document.getElementById('anime3').innerHTML="All Episodes : "+arr.all;
+    });
+    ipcRenderer.on('seriecount', (event, arr) => {
+        document.getElementById('serie1').innerHTML="New item : "+arr.new;
+        document.getElementById('serie2').innerHTML="Completed : "+arr.completed;
+        document.getElementById('serie3').innerHTML="All Episodes : "+arr.all;
+    });
+    ipcRenderer.on('moviecount', (event, arr) => {
+        document.getElementById('movie1').innerHTML="New item : "+arr.new;
+        document.getElementById('movie2').innerHTML="Completed : "+arr.completed;
+        document.getElementById('movie3').innerHTML="All Episodes : "+arr.all;
+    });
 
     ipcRenderer.on('show_message', (event, str) => {
         document.getElementById('from_url').innerHTML=str
@@ -107,22 +122,16 @@
         document.getElementById('process-header').innerHTML=str
     });
 
-    ipcRenderer.on('preparing', () => {
-        document.getElementById('status').innerHTML="Preparing..."
+    ipcRenderer.on('setCountAnime', (event, str) => {
+        document.getElementById('count_animes').innerHTML="Complete of Anime : " + str;
     });
 
-    ipcRenderer.on('setCountAnime', (event, str) => {
-        document.getElementById('count_animes').innerHTML="Complete of Anime : " + str
-    });
     ipcRenderer.on('setCountSeries', (event, str) => {
-        document.getElementById('count_series').innerHTML="Complete of Series : " + str
+        document.getElementById('count_series').innerHTML="Complete of Series : " + str;
     });
+
     ipcRenderer.on('setCountMovies', (event, str) => {
-        document.getElementById('count_movie').innerHTML="Complete of Movies : " + str
-    });
-    ipcRenderer.on('complete', (event, str) => {
-        document.getElementById('status').innerHTML="";
-        document.getElementById('process-header').innerHTML="completed"
+        document.getElementById('count_movie').innerHTML="Complete of Movies : " + str;
     });
 
     // You can also require other files to run in this process

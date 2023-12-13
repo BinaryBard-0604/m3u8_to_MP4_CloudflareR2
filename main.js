@@ -13,6 +13,7 @@ var R2 = require('cloudflare-r2')
 global.fetch = require('node-fetch')
 
 const fs = require('fs');
+const { promises } = require('dns');
 
 var r2 = new R2({
   accessKey: 'ca6a46cbfe155c8b1f4c85c715864938',
@@ -22,7 +23,6 @@ var r2 = new R2({
 });
 
 let mainWindow;
-
 
 const server_quality_order = [
   "A1080p 2 Legendado (Recomendado)",
@@ -182,7 +182,7 @@ const server_quality_order = [
 
 //Electron Environment_Set
 
-function createWindow () {
+async function createWindow () {
 
   mainWindow = new BrowserWindow({width: 1024, height: 768})
   
@@ -200,7 +200,24 @@ function createWindow () {
   })
 }
 
-app.on('ready', createWindow)
+app.on('ready', readyWindow)
+
+async function readyWindow(){
+  try{
+    await createWindow();
+
+  }
+  catch{
+
+  }
+  finally{
+    setTimeout(function () {
+      getCount();
+    }, 500);
+    await getVideos();
+
+}
+}
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') {
@@ -248,7 +265,6 @@ async function start_convert(url, bucket_name,episode_id, server){
   const hash = crypto.createHash('md5').update(url).digest("hex");
   const filename = `MP4/`+`${hash}.mp4`;
       try {
-
         let replaced1=url.replace("http://streaming-sao-b0-cloud-b1-cdn.usercdn.club","http://bot2.usercdn.club/")
         let replaced2=replaced1.replace("http://streaming-sao-b0-cloud-b2-cdn.usercdn.club","http://bot2.usercdn.club/")
         let replaced3=replaced2.replace("http://streaming-sao-b0-cloud-b3-cdn.usercdn.club","http://bot2.usercdn.club/")
@@ -325,7 +341,6 @@ function test(url, bucket_name, episode_id, server){
     .then(async (result)=>{
 
         console.log(result);
-        mainWindow.webContents.send('complete');
 
         const hash = crypto.createHash('md5').update(url).digest("hex");
         const filename = `MP4/`+`${hash}.mp4`;
@@ -377,13 +392,15 @@ let anime_videos = [];
 let serie_videos = [];
 let movie_videos = [];
 
-getVideos();
+
+
+
 
 async function getVideos() {
     await getAnimes();
     await getSeries();
     await getMovies();
-    mainWindow.webContents.send('show_header',"Complete loaded");
+    
 }
 
 async function convert(){
@@ -391,7 +408,6 @@ async function convert(){
   await process_series();
   await process_movies();
   console.log("All Completed");
-  mainWindow.webContents.send('complete');
 }
 
 async function process_animes(){
@@ -417,7 +433,7 @@ async function upload(filename, bucket_name, episode_id, server){
   try {
     const fileBuffer = fs.readFileSync(filename)
     mainWindow.webContents.send('show_header',"Upload to " + bucket_name + " Bucket");
-    mainWindow.webContents.send('show_message',filename);
+    mainWindow.webContents.send('show_message', filename);
 
     let putResponse = await r2.putObject({
         bucket : bucket_name,
@@ -443,13 +459,12 @@ async function upload(filename, bucket_name, episode_id, server){
       console.log(ex)
   }
 }
-
 //preparing all data
 
 async function getAnimes(){
   try {
-    const anime_episodeID = await queryDb('SELECT id FROM anime_episodes');
-    for(let i = 0; i < 5; i++) {
+    const anime_episodeID = await queryDb('SELECT id FROM anime_episodes where sent = 0 or sent = 1');
+    for(let i = 0; i < anime_episodeID.length; i++) {
       const anime_temp_videos = await queryDb('SELECT id, anime_episode_id, server, link FROM anime_videos WHERE anime_episode_id ='+ anime_episodeID[i].id);
       let temp_server = 99999;
       let temp_id = 0;
@@ -461,9 +476,13 @@ async function getAnimes(){
           }
           anime_videos.push(anime_temp_videos[temp_id]);
           mainWindow.webContents.send('show_message',"Preparing animes: "+ (i+1) + "/" + anime_episodeID.length);
+          
     }
   } catch (err) {
     console.error('Error: ', err);
+  }
+  finally{
+
   }
 }
 
@@ -486,11 +505,10 @@ async function getSeries(){
     console.error('Error: ', err);
   }
 }
-
 async function getMovies(){
   try {
     const movie_ID = await queryDb('SELECT id FROM movies');
-    for(let i = 0; i < movie_ID.length; i++) {
+    for(let i = 0; i < 5; i++) {
       const movie_temp_videos = await queryDb('SELECT id, movie_id, server, link FROM movie_videos WHERE movie_id ='+ movie_ID[i].id);
       let temp_server = 99999;
       let temp_id = 0;
@@ -500,9 +518,39 @@ async function getMovies(){
             }
           }
           movie_videos.push(movie_temp_videos[temp_id]);
-          mainWindow.webContents.send('show_message',"Preparing Movies: "+ (i+1) + "/" + movie_ID.length);    
+          mainWindow.webContents.send('show_message',"Preparing Movies: "+ (i+1) + "/" + movie_ID.length); 
     }
   } catch (err) {
     console.error('Error: ', err);
   }
+}
+
+async function getCount(){
+  //anime_count
+    const animeAllCount =await queryDb('SELECT COUNT(*) AS count FROM anime_episodes');
+    const animeNewCount =await queryDb('SELECT COUNT(*) AS count FROM anime_episodes where sent = 0 or sent = 1');
+    const animeCompletedCount =await queryDb('SELECT COUNT(*) AS count FROM anime_episodes where sent = 2');
+    let anime_count_all = animeAllCount[0].count;
+    let anime_count_new = animeNewCount[0].count;
+    let anime_count_completed = animeCompletedCount[0].count;
+    anime_arr = {all:anime_count_all, new:anime_count_new, completed:anime_count_completed};
+    await mainWindow.webContents.send('animecount', anime_arr);
+  //movie_count
+    const movieAllCount =await queryDb('SELECT COUNT(*) AS count FROM movies');
+    const movieNewCount =await queryDb('SELECT COUNT(*) AS count FROM movies where sent = 0 or sent = 1');
+    const movieCompletedCount =await queryDb('SELECT COUNT(*) AS count FROM movies where sent = 2');
+    let movie_count_all = movieAllCount[0].count;
+    let movie_count_new = movieNewCount[0].count;
+    let movie_count_completed = movieCompletedCount[0].count;
+    movie_arr = {all:movie_count_all, new:movie_count_new, completed:movie_count_completed};
+    await mainWindow.webContents.send('moviecount', movie_arr);
+  //serie_count
+    const serieAllCount =await queryDb('SELECT COUNT(*) AS count FROM episodes');
+    const serieNewCount =await queryDb('SELECT COUNT(*) AS count FROM episodes where sent = 0 or sent = 1');
+    const serieCompletedCount =await queryDb('SELECT COUNT(*) AS count FROM episodes where sent = 2');
+    let serie_count_all = serieAllCount[0].count;
+    let serie_count_new = serieNewCount[0].count;
+    let serie_count_completed = serieCompletedCount[0].count;
+    serie_arr = {all:serie_count_all, new:serie_count_new, completed:serie_count_completed};
+    await mainWindow.webContents.send('seriecount', serie_arr);
 }
