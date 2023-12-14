@@ -1,0 +1,9 @@
+{
+    "access_Key": "ca6a46cbfe155c8b1f4c85c715864938",
+    "secret_Key": "4f313d0a6d2af9c6893ff1f0aa9668c8f4ce724233fbe126d80568345cceed21",
+    "account_Id": "340cf263fdf44b55df5780b245125d2f",
+    "host" : "localhost",
+    "user" : "root",
+    "pass" : "",
+    "database" : "nikolas"
+}

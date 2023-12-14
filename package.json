@@ -4,7 +4,24 @@
   "description": "A minimal Electron application",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "electron-quick-start",
+    "dmg": {
+      "title": "${productName} ${version}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    },
+    "win": {
+      "target": "NSIS",
+      "icon": "build/icon.ico"
+    }
   },
   "repository": "https://github.com/electron/electron-quick-start",
   "keywords": [
@@ -17,11 +34,14 @@
   "author": "GitHub",
   "license": "CC0-1.0",
   "devDependencies": {
-    "electron": "3.0.11"
+    "electron": "3.0.11",
+    "electron-builder": "^24.9.1"
   },
   "dependencies": {
     "cloudflare-r2": "^1.0.0",
     "crypto": "^1.0.1",
+    "dotenv": "^16.3.1",
+    "electron-store": "^8.1.0",
     "ffmpeg": "^0.0.4",
     "ffmpeg-static": "^5.2.0",
     "fluent-ffmpeg": "^2.1.2",
@@ -29,6 +49,7 @@
     "mysql": "^2.18.1",
     "node-cloudflare-r2": "^0.1.5",
     "node-fetch": "^2.7.0",
-    "node-m3u8-to-mp4": "^3.0.0"
+    "node-m3u8-to-mp4": "^3.0.0",
+    "sqlite3": "^5.1.6"
   }
 }
