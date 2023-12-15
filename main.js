@@ -16,7 +16,7 @@ const fs = require('fs');
 
 const { promises } = require('dns');
 
-const { Console } = require('console');
+const { Console, count } = require('console');
 
 //const config = require('./config.json');
 
@@ -301,14 +301,17 @@ async function start_convert(url, bucket_name,episode_id, server){
   const hash = crypto.createHash('md5').update(url).digest("hex");
   const filename = `MP4/`+`${hash}.mp4`;
       try {
+        //"http://streaming-sao01.cloudplayapp.online/ -> bot"
+        //"http://bot.online/contentsd/gama/animes/b/boruto/sd/1-temporada/legendado/sd/2/2.m3u8"
         let replaced1=url.replace("http://streaming-sao-b0-cloud-b1-cdn.usercdn.club","http://bot2.usercdn.club/")
         let replaced2=replaced1.replace("http://streaming-sao-b0-cloud-b2-cdn.usercdn.club","http://bot2.usercdn.club/")
         let replaced3=replaced2.replace("http://streaming-sao-b0-cloud-b3-cdn.usercdn.club","http://bot2.usercdn.club/")
-        setInputFile(replaced3);
+        let replaced4=replaced3.replace("http://streaming-sao01.cloudplayapp.online","http://bot.cloudplayapp.online")
+        setInputFile(replaced4);
         setOutputFile(filename);
         mainWindow.webContents.send('show_header',"Convert to MP4");
         mainWindow.webContents.send('hide_spinner');
-        mainWindow.webContents.send('show_message',url);
+        mainWindow.webContents.send('show_message',replaced4);
         await convert_process();
         console.log("Conversion completed!");
     } catch (err) {
@@ -386,6 +389,11 @@ function test(url, bucket_name, episode_id, server){
 
         }
         await upload(filename, bucket_name, episode_id, server);
+        await fs.unlink(filename, (err) => {
+          if (err) throw err;
+          console.log('File deleted!'); 
+        });
+
     })
 }
 
@@ -430,7 +438,7 @@ let movie_videos = [];
 
 setInterval(() => {
   addVideos();
-}, 600000);
+}, 6000000);
 
 async function getVideos() {
     await getAnimes("start");
@@ -520,18 +528,20 @@ async function upload(filename, bucket_name, episode_id, server){
         key : filename,
         body: fileBuffer
     })
+
+
     console.log(putResponse.url)
     if(bucket_name === "anime"){
       await queryDb(`INSERT INTO anime_videos (anime_episode_id, link, server) 
-      VALUES('`+episode_id+`', '`+putResponse.url+`', '`+server+`')`);
+      VALUES('`+episode_id+`', '`+putResponse.url+`', '`+server + "-R2-link"+`')`);
     }
     if(bucket_name === "filme"){
       await queryDb(`INSERT INTO movie_videos (movie_id, link, server) 
-      VALUES('`+episode_id+`', '`+putResponse.url+`', '`+server+`')`);
+      VALUES('`+episode_id+`', '`+putResponse.url+`', '`+server + "-R2-link"+`')`);
     }
     if(bucket_name === "serie"){
       await queryDb(`INSERT INTO serie_videos (episode_id, link, server) 
-      VALUES('`+episode_id+`', '`+putResponse.url+`', '`+server+`')`);
+      VALUES('`+episode_id+`', '`+putResponse.url+`', '`+server + "-R2-link"+`')`);
     }
     console.log("complete upload");
   }
@@ -550,12 +560,14 @@ async function getAnimes(flag){
     if(flag === "patrol"){
       anime_episodeID = await queryDb('SELECT id FROM anime_episodes where sent = 0');
     }
-    for(let i = 0; i < 5; i++) {
+    for(let i = 0; i < anime_episodeID.length; i++) {
+      let count = await queryDb('SELECT COUNT(*) AS count FROM anime_videos WHERE anime_episode_id ='+anime_episodeID[i].id);
+      if(count[0].count != 0){
       const anime_temp_videos = await queryDb('SELECT id, anime_episode_id, server, link FROM anime_videos WHERE anime_episode_id =' + anime_episodeID[i].id);
       await queryDb('UPDATE anime_episodes SET sent = 1 WHERE id = '+ anime_episodeID[i].id + ' and sent = 0');
       let temp_server = 99999;
       let temp_id = 0;
-          for(let j = 0; j<anime_temp_videos.length; j++){
+          for(let j = 0; j < anime_temp_videos.length; j++){
             if(anime_temp_videos[j].server!="" && temp_server > server_quality_order.indexOf(anime_temp_videos[j].server)){
                 temp_server = server_quality_order.indexOf(anime_temp_videos[j].server);
                 temp_id = j;
@@ -572,7 +584,7 @@ async function getAnimes(flag){
             }
           }
           mainWindow.webContents.send('show_message',"Preparing animes: "+ (i + 1) + "/" + anime_episodeID.length);
-    }
+    }}
   } catch (err) {
     console.error('Error: ', err);
   }
@@ -591,14 +603,18 @@ async function getSeries(flag){
       serie_episodeID = await queryDb('SELECT id FROM episodes where sent = 0');
     }
     serie_episodeID = await queryDb('SELECT id FROM episodes where sent = 0 or sent = 1');
-    for(let i = 0; i < 5; i++) {
+    console.log(serie_episodeID.length);
+    for(let i = 0; i < serie_episodeID.length; i++) {
+      let count = await queryDb('SELECT COUNT(*) AS count FROM serie_videos WHERE episode_id ='+serie_episodeID[i].id);
+      if(count[0].count != 0){
       const serie_temp_videos = await queryDb('SELECT id, episode_id, server, link FROM serie_videos WHERE episode_id ='+ serie_episodeID[i].id);
       await queryDb('UPDATE episodes SET sent = 1 WHERE id = '+ serie_episodeID[i].id + ' and sent = 0');
       let temp_server = 99999;
       let temp_id = 0;
-          for(let j = 0; j<serie_temp_videos.length; j++){
+          for(let j = 0; j< serie_temp_videos.length; j++){
             if(serie_temp_videos[j].server!="" && temp_server > server_quality_order.indexOf(serie_temp_videos[j].server)){
                 temp_server = server_quality_order.indexOf(serie_temp_videos[j].server);
+                temp_id = j;
             }
           }
           serie_videos.push(serie_temp_videos[temp_id]);
@@ -612,7 +628,7 @@ async function getSeries(flag){
             }
           }
           mainWindow.webContents.send('show_message',"Preparing series: "+ (i+1) + "/" + serie_episodeID.length);    
-    }
+    }}
   } catch (err) {
     console.error('Error: ', err);
   }
@@ -627,27 +643,32 @@ async function getMovies(flag){
       movie_ID = await queryDb('SELECT id FROM movies where sent = 0');
     }
     movie_ID = await queryDb('SELECT id FROM movies where sent = 0 or sent = 1');
-    for(let i = 0; i < 5; i++) {
-      const movie_temp_videos = await queryDb('SELECT id, movie_id, server, link FROM movie_videos WHERE movie_id ='+ movie_ID[i].id);
-      await queryDb('UPDATE movies SET sent = 1 WHERE id = '+ movie_ID[i].id + ' and sent = 0');
-      let temp_server = 99999;
-      let temp_id = 0;
-          for(let j = 0; j<movie_temp_videos.length; j++){
-            if(movie_temp_videos[j].server!="" && temp_server > server_quality_order.indexOf(movie_temp_videos[j].server)){
-                temp_server = server_quality_order.indexOf(movie_temp_videos[j].server);
+
+    for(let i = 0; i < movie_ID.length; i++) {
+      let count = await queryDb('SELECT COUNT(*) AS count FROM movie_videos WHERE movie_id ='+movie_ID[i].id);
+      if(count[0].count != 0){
+        const movie_temp_videos = await queryDb('SELECT id, movie_id, server, link FROM movie_videos WHERE movie_id ='+ movie_ID[i].id);
+        await queryDb('UPDATE movies SET sent = 1 WHERE id = '+ movie_ID[i].id + ' and sent = 0');
+        let temp_server = 99999;
+        let temp_id = 0;
+            for(let j = 0; j<movie_temp_videos.length; j++){
+              if(movie_temp_videos[j].server!="" && temp_server > server_quality_order.indexOf(movie_temp_videos[j].server)){
+                  temp_server = server_quality_order.indexOf(movie_temp_videos[j].server);
+                  temp_id = j;
+                }
             }
-          }
-          movie_videos.push(movie_temp_videos[temp_id]);
-          let top_quality_server = movie_temp_videos[temp_id].server;
-          if(top_quality_server.includes('Legendado')){
-            let tempstr = top_quality_server.replace('Legendado', 'Dublado');
-            let countDublado = await queryDb('SELECT COUNT(*) AS count FROM movie_videos WHERE movie_id ='+movie_ID[i].id+' and server = "'+tempstr+'"');
-            if(countDublado[0].count>0){
-               let Dublado_video = await queryDb('SELECT id, movie_id, server, link FROM movie_videos WHERE movie_id = '+movie_ID[i].id+' and server = "'+tempstr+'"');
-               movie_videos.push(Dublado_video[0]);
+            movie_videos.push(movie_temp_videos[temp_id]);
+            let top_quality_server = movie_temp_videos[temp_id].server;
+            if(top_quality_server.includes('Legendado')){
+              let tempstr = top_quality_server.replace('Legendado', 'Dublado');
+              let countDublado = await queryDb('SELECT COUNT(*) AS count FROM movie_videos WHERE movie_id ='+movie_ID[i].id+' and server = "'+tempstr+'"');
+              if(countDublado[0].count>0){
+                 let Dublado_video = await queryDb('SELECT id, movie_id, server, link FROM movie_videos WHERE movie_id = '+movie_ID[i].id+' and server = "'+tempstr+'"');
+                 movie_videos.push(Dublado_video[0]);
+              }
             }
-          }
-          mainWindow.webContents.send('show_message',"Preparing Movies: "+ (i+1) + "/" + movie_ID.length); 
+            mainWindow.webContents.send('show_message',"Preparing Movies: "+ (i+1) + "/" + movie_ID.length); 
+      }
     }
   } catch (err) {
     console.error('Error: ', err);
