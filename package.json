@@ -38,6 +38,7 @@
     "electron-builder": "^24.9.1"
   },
   "dependencies": {
+    "child_process": "^1.0.2",
     "cloudflare-r2": "^1.0.0",
     "crypto": "^1.0.1",
     "dotenv": "^16.3.1",
